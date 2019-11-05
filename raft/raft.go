@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 import "6.824/labrpc"
@@ -463,8 +464,8 @@ func (rf *Raft) handleTimeout(timeout int) {
 
 func (rf *Raft) startElection() {
 	//fmt.Printf("%v start election with term %v\n", rf.me, rf.currentTerm)
-	var counterLock sync.Mutex
-	counter := 1
+	var counter int32 = 1
+
 	currentTerm := rf.currentTerm
 	request := &RequestVoteArgs{
 		currentTerm,
@@ -476,6 +477,7 @@ func (rf *Raft) startElection() {
 	if len(rf.log) != 0 {
 		request.LastLogTerm = rf.log[len(rf.log) - 1].Term
 	}
+	rf.mu.Unlock()
 
 	for index := 0; index < len(rf.peers); index++ {
 		if index != rf.me {
@@ -483,13 +485,10 @@ func (rf *Raft) startElection() {
 				reply := &RequestVoteReply{}
 				ok := rf.sendRequestVote(index, request, reply)
 				if ok && reply.VoteGranted {
-					counterLock.Lock()
-					counter += 1
-					currentValue := counter
-					counterLock.Unlock()
+					atomic.AddInt32(&counter, 1)
 
 					rf.mu.Lock()
-					if rf.currentState == Candidate && currentTerm == rf.currentTerm && currentValue > (len(rf.peers) / 2) {
+					if rf.currentState == Candidate && currentTerm == rf.currentTerm && atomic.LoadInt32(&counter) > int32(len(rf.peers) / 2) {
 						//fmt.Printf("%v became leader! With log: %v\n ", rf.me, rf.log)
 						rf.currentState = Leader
 						rf.persist()
@@ -506,7 +505,6 @@ func (rf *Raft) startElection() {
 			}(index)
 		}
 	}
-	rf.mu.Unlock()
 }
 
 // 每120ms发送一次心跳信息
@@ -517,25 +515,31 @@ func (rf *Raft) sendHeartbeats() {
 			rf.mu.Unlock()
 			return
 		}
+		currentTerm := rf.currentTerm
+		nextIndex := rf.nextIndex
+		commitIndex := rf.commitIndex
+		log := rf.log
+
+		rf.mu.Unlock()
 
 		for serverIndex := 0; serverIndex < len(rf.peers); serverIndex++ {
 			if serverIndex != rf.me {
 				appendEntries := &AppendEntries{
-					Term:         rf.currentTerm,
+					Term:         currentTerm,
 					LeaderId:     rf.me,
-					PrevLogIndex: rf.nextIndex[serverIndex] - 1,
+					PrevLogIndex: nextIndex[serverIndex] - 1,
 					PrevLogTerm:  -1,
 					Entries:      nil,
-					LeaderCommit: rf.commitIndex,
+					LeaderCommit: commitIndex,
 				}
 
-				if appendEntries.PrevLogIndex >= 0 { appendEntries.PrevLogTerm = rf.log[appendEntries.PrevLogIndex].Term }
+				if appendEntries.PrevLogIndex >= 0 { appendEntries.PrevLogTerm = log[appendEntries.PrevLogIndex].Term }
 
-				if len(rf.log) > rf.nextIndex[serverIndex] {
+				if len(log) > nextIndex[serverIndex] {
 					appendEntries.Entries = make([]Entry, 0)
-					start := rf.nextIndex[serverIndex]
+					start := nextIndex[serverIndex]
 					if start == -1 { start = 0 }
-					appendEntries.Entries = append(appendEntries.Entries, rf.log[start:]...)
+					appendEntries.Entries = append(appendEntries.Entries, log[start:]...)
 				}
 
 				go func(serverIndex int) {
@@ -547,7 +551,7 @@ func (rf *Raft) sendHeartbeats() {
 				}(serverIndex)
 			}
 		}
-		rf.mu.Unlock()
+
 		time.Sleep(time.Duration(120) * time.Millisecond)
 	}
 }
