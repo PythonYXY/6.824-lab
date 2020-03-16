@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"6.824/mapreduce"
+	"../mapreduce"
 	"os"
 	"strings"
 	"unicode"

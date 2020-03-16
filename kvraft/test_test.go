@@ -1,6 +1,6 @@
 package raftkv
 
-import "linearizability"
+import "../linearizability"
 
 import "testing"
 import "strconv"
@@ -645,6 +645,7 @@ func TestSnapshotRPC3B(t *testing.T) {
 	check(cfg, t, ck, "e", "E")
 	check(cfg, t, ck, "1", "1")
 
+
 	cfg.end()
 }
 
@@ -681,11 +682,6 @@ func TestSnapshotSize3B(t *testing.T) {
 	cfg.end()
 }
 
-func TestSnapshotRecover3B(t *testing.T) {
-	// Test: restarts, snapshots, one client (3B) ...
-	GenericTest(t, "3B", 1, false, true, false, 1000)
-}
-
 func TestSnapshotRecoverManyClients3B(t *testing.T) {
 	// Test: restarts, snapshots, many clients (3B) ...
 	GenericTest(t, "3B", 20, false, true, false, 1000)
@@ -694,16 +690,6 @@ func TestSnapshotRecoverManyClients3B(t *testing.T) {
 func TestSnapshotUnreliable3B(t *testing.T) {
 	// Test: unreliable net, snapshots, many clients (3B) ...
 	GenericTest(t, "3B", 5, true, false, false, 1000)
-}
-
-func TestSnapshotUnreliableRecover3B(t *testing.T) {
-	// Test: unreliable net, restarts, snapshots, many clients (3B) ...
-	GenericTest(t, "3B", 5, true, true, false, 1000)
-}
-
-func TestSnapshotUnreliableRecoverConcurrentPartition3B(t *testing.T) {
-	// Test: unreliable net, restarts, partitions, snapshots, many clients (3B) ...
-	GenericTest(t, "3B", 5, true, true, true, 1000)
 }
 
 func TestSnapshotUnreliableRecoverConcurrentPartitionLinearizable3B(t *testing.T) {

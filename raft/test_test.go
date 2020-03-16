@@ -17,11 +17,6 @@ import "math/rand"
 import "sync/atomic"
 import "sync"
 
-func TestRand(t *testing.T) {
-	fmt.Println(randInt(500, 1000))
-	time.Sleep(time.Second)
-	fmt.Println(randInt(500, 1000))
-}
 
 // The tester generously allows solutions to complete elections in one second
 // (much more than the paper's range of timeouts).

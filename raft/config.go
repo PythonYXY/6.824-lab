@@ -9,7 +9,7 @@ package raft
 //
 
 import (
-	"6.824/labrpc"
+	"../labrpc"
 )
 import "log"
 import "sync"

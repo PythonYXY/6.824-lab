@@ -1,6 +1,8 @@
 package raftkv
 
-import "labrpc"
+import (
+	"../labrpc"
+)
 import "crypto/rand"
 import "math/big"
 
@@ -8,6 +10,9 @@ import "math/big"
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+	lastLeader int
+	id int64
+	seqNum int
 }
 
 func nrand() int64 {
@@ -21,6 +26,8 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// You'll have to add code here.
+	ck.id = nrand()
+	ck.seqNum = 0
 	return ck
 }
 
@@ -37,9 +44,21 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 // arguments. and reply must be passed as a pointer.
 //
 func (ck *Clerk) Get(key string) string {
-
+	//DPrintf("client %v: get %s", ck.id, key)
 	// You will have to modify this function.
-	return ""
+	index := ck.lastLeader
+	for {
+		args := GetArgs{
+			Key:    key,
+		}
+		reply := GetReply{}
+		ok := ck.servers[index].Call("KVServer.Get", &args, &reply)
+		if ok && !reply.WrongLeader {
+			ck.lastLeader = index
+			return reply.Value
+		}
+		index = (index + 1) % len(ck.servers)
+	}
 }
 
 //
@@ -53,7 +72,26 @@ func (ck *Clerk) Get(key string) string {
 // arguments. and reply must be passed as a pointer.
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
+	//DPrintf("client %v: %s key: %s, value: %s", ck.id, op, key, value)
 	// You will have to modify this function.
+	index := ck.lastLeader
+	args := PutAppendArgs{
+		Key:key,
+		Value:value,
+		Op:op,
+		Cid: ck.id,
+		SeqNum: ck.seqNum,
+	}
+	ck.seqNum++
+	for {
+		reply := PutAppendReply{}
+		ok := ck.servers[index].Call("KVServer.PutAppend", &args, &reply)
+		if ok && !reply.WrongLeader {
+			ck.lastLeader = index
+			return
+		}
+		index = (index + 1) % len(ck.servers)
+	}
 }
 
 func (ck *Clerk) Put(key string, value string) {
@@ -62,3 +100,5 @@ func (ck *Clerk) Put(key string, value string) {
 func (ck *Clerk) Append(key string, value string) {
 	ck.PutAppend(key, value, "Append")
 }
+
+

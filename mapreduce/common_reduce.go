@@ -69,22 +69,17 @@ func doReduce(
 		for dec.More() {
 			var kv KeyValue
 			if err := dec.Decode(&kv); err != nil { panic(err) }
-			_, ok := kvMap[kv.Key]
-			if !ok {
-				kvMap[kv.Key] = []string{kv.Value}
-			} else {
-				kvMap[kv.Key] = append(kvMap[kv.Key], kv.Value)
-			}
+			kvMap[kv.Key] = append(kvMap[kv.Key], kv.Value)
 		}
 
 		if err := fi.Close(); err != nil { panic(err) }
 	}
 
-	for _, value := range kvMap {
-		sort.Slice(value, func(i, j int) bool {
-			return value[i] < value[j]
-		})
+	keySlice := make([]string, 0)
+	for k := range kvMap {
+		keySlice = append(keySlice, k);
 	}
+	sort.Strings(keySlice)
 
 	fo, err := os.Create(outFile)
 	if err != nil { panic(err) }
@@ -93,8 +88,8 @@ func doReduce(
 	}()
 
 	enc := json.NewEncoder(fo)
-	for key, values := range kvMap {
-		err := enc.Encode(KeyValue{key, reduceF(key, values)})
+	for _, key := range keySlice {
+		err := enc.Encode(KeyValue{key, reduceF(key, kvMap[key])})
 		if err != nil { panic(err) }
 	}
 }
